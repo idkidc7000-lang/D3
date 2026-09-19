@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Flappy Bird (2016 Retro Edition)</title>
+    <style>
+        body {
+            background-color: #222;
+            color: #white;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding-top: 20px;
+        }
+        canvas {
+            border: 4px solid #fff;
+            box-shadow: 0px 0px 20px rgba(0,0,0,0.5);
+            background-color: #70c5ce;
+            cursor: pointer;
+        }
+        p {
+            color: #aaa;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2 style="color: #fff; margin: 5px;">Flappy Bird</h2>
+    <canvas id="gameCanvas" width="320" height="480"></canvas>
+    <p>Press SPACEBAR or CLICK to Flap</p>
+
+    <script>
+        // 2016-compatible ES5 JavaScript Code
+        var canvas = document.getElementById("gameCanvas");
+        var ctx = canvas.getContext("2d");
+
+        // Game Variables
+        var frames = 0;
+        var score = 0;
+        var gameState = 0; // 0: Start Screen, 1: Playing, 2: Game Over
+
+        // Bird Object
+        var bird = {
+            x: 50,
+            y: 150,
+            width: 30,
+            height: 24,
+            gravity: 0.6,
+            lift: -9,
+            velocity: 0,
+            
+            draw: function() {
+                // Draw body
+                ctx.fillStyle = "#f8e71c";
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                
+                // Draw beak
+                ctx.fillStyle = "#f5a623";
+                ctx.fillRect(this.x + this.width, this.y + 6, 8, 8);
+                
+                // Draw eye
+                ctx.fillStyle = "#000";
+                ctx.fillRect(this.x + 18, this.y + 5, 4, 4);
+            },
+            
+            update: function() {
+                this.velocity += this.gravity;
+                this.y += this.velocity;
+                
+                // Floor collision
+                if (this.y + this.height >= canvas.height - 50) {
+                    this.y = canvas.height - 50 - this.height;
+                    gameState = 2; // Game Over
+                }
+                
+                // Ceiling collision
+                if (this.y <= 0) {
+                    this.y = 0;
+                    this.velocity = 0;
+                }
+            },
+            
+            flap: function() {
+                this.velocity = this.lift;
+            }
+        };
+
+        // Pipes Array
+        var pipes = [];
+        var pipeWidth = 50;
+        var pipeGap = 110;
+        var pipeSpeed = 3;
+
+        function resetGame() {
+            frames = 0;
+            score = 0;
+            pipes = [];
+            bird.y = 150;
+            bird.velocity = 0;
+            gameState = 1;
+        }
+
+        // Input Handlers (Fully compatible with 2016 desktop/mobile touch models)
+        document.addEventListener("keydown", function(evt) {
+            if (evt.keyCode === 32) { // Spacebar
+                handleInput();
+            }
+        });
+
+        canvas.addEventListener("mousedown", function() {
+            handleInput();
+        });
+
+        function handleInput() {
+            if (gameState === 0) {
+                gameState = 1; // Start playing
+            } else if (gameState === 1) {
+                bird.flap();
+            } else if (gameState === 2) {
+                resetGame();
+            }
+        }
+
+        // Main Game Loop
+        function loop() {
+            update();
+            draw();
+            frames++;
+            
+            // requestAnimationFrame with standard 2016 fallback polyfill support if needed, 
+            // but standard rAF was universally supported by Chrome/Firefox/Safari/IE11/Mobile in 2016.
+            requestAnimationFrame(loop);
+        }
+
+        function update() {
+            if (gameState !== 1) return;
+
+            // Generate Pipes
+            if (frames % 100 === 0) {
+                var minHeight = 50;
+                var maxHeight = canvas.height - 150 - pipeGap;
+                var randomHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+
+                pipes.push({
+                    x: canvas.width,
+                    top: randomHeight,
+                    bottom: canvas.height - 50 - randomHeight - pipeGap,
+                    passed: false
+                });
+            }
+
+            // Update Pipes
+            for (var i = pipes.length - 1; i >= 0; i--) {
+                pipes[i].x -= pipeSpeed;
+
+                // Collision Detection (AABB bounding box)
+                if (
+                    bird.x < pipes[i].x + pipeWidth &&
+                    bird.x + bird.width > pipes[i].x &&
+                    (bird.y < pipes[i].top || bird.y + bird.height > canvas.height - 50 - pipes[i].bottom)
+                ) {
+                    gameState = 2; // Game Over
+                }
+
+                // Score Increment
+                if (!pipes[i].passed && pipes[i].x + pipeWidth < bird.x) {
+                    score++;
+                    pipes[i].passed = true;
+                }
+
+                // Remove off-screen pipes
+                if (pipes[i].x + pipeWidth < 0) {
+                    pipes.splice(i, 1);
+                }
+            }
+
+            bird.update();
+        }
+
+        function draw() {
+            // Background Sky
+            ctx.fillStyle = "#70c5ce";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Pipes
+            for (var i = 0; i < pipes.length; i++) {
+                var p = pipes[i];
+                ctx.fillStyle = "#73bf2e";
+                // Top Pipe
+                ctx.fillRect(p.x, 0, pipeWidth, p.top);
+                // Bottom Pipe
+                ctx.fillRect(p.x, canvas.height - 50 - p.bottom, pipeWidth, p.bottom);
+                
+                // Pipe borders for retro look
+                ctx.strokeStyle = "#558022";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(p.x, 0, pipeWidth, p.top);
+                ctx.strokeRect(p.x, canvas.height - 50 - p.bottom, pipeWidth, p.bottom);
+            }
+
+            // Draw Ground Base (Moving look layer)
+            ctx.fillStyle = "#ded895";
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+            ctx.fillStyle = "#5ee270";
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 12);
+
+            // Draw Bird
+            bird.draw();
+
+            // UI / Text overlays based on state
+            if (gameState === 0) {
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 24px Arial";
+                ctx.fillText("FLAPPY BIRD", 80, 180);
+                ctx.font = "14px Arial";
+                ctx.fillText("Click or Space to Start", 90, 220);
+            } else if (gameState === 2) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 26px Arial";
+                ctx.fillText("GAME OVER", 80, 180);
+                ctx.font = "16px Arial";
+                ctx.fillText("Score: " + score, 130, 220);
+                ctx.fillText("Click to Restart", 105, 260);
+            } else {
+                // Running Score
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 30px Arial";
+                ctx.fillText(score, canvas.width / 2 - 10, 50);
+            }
+        }
+
+        // Initialize loop
+        loop();
+    </script>
+</body>
+  </html>
+  
